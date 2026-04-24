@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GPT Image 2 Studio</title>
+  <meta name="description" content="A GitHub Pages-ready GPT Image 2 API caller for image generation and edits." />
+  <link rel="icon" type="image/png" href="./assets/app-icon.png" />
+  <link rel="apple-touch-icon" href="./assets/app-icon.png" />
+  <meta property="og:image" content="./assets/app-icon.png" />
+  <meta name="twitter:image" content="./assets/app-icon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar" aria-label="侧边栏">
+      <div class="brand-row">
+        <div class="brand-mark"><img src="./assets/app-icon.png" alt="" /></div>
+        <div>
+          <div class="brand-title">GPT Image 2</div>
+          <div class="brand-subtitle">Image API Studio</div>
+        </div>
+      </div>
+
+      <button id="newChatBtn" class="primary-sidebar-btn" type="button">＋ 新建图片对话</button>
+
+      <section class="sidebar-section gpts-like" aria-labelledby="presetHeading">
+        <div class="section-heading-row">
+          <h2 id="presetHeading">预设</h2>
+          <button id="addPresetBtn" class="icon-btn" type="button" title="添加预设">＋</button>
+        </div>
+        <button id="saveCurrentPresetBtn" class="ghost-sidebar-btn" type="button">保存当前参数为预设</button>
+        <div id="presetList" class="sidebar-list empty-list-note">暂无预设</div>
+      </section>
+
+      <section class="sidebar-section grow" aria-labelledby="historyHeading">
+        <div class="section-heading-row">
+          <h2 id="historyHeading">对话记录</h2>
+          <button id="deleteAllChatsBtn" class="icon-btn danger" type="button" title="删除全部对话记录">清空</button>
+        </div>
+        <div id="conversationList" class="sidebar-list empty-list-note">暂无对话</div>
+      </section>
+
+      <div class="sidebar-footer">
+        <button id="settingsBtn" class="sidebar-footer-btn" type="button">⚙ 设置</button>
+      </div>
+    </aside>
+    <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
+
+    <main class="main-panel">
+      <header class="topbar">
+        <button id="sidebarToggle" class="mobile-menu-btn" type="button" aria-label="打开侧边栏" aria-controls="sidebar" aria-expanded="false">☰</button>
+        <div>
+          <h1 id="conversationTitle">新图片对话</h1>
+          <p id="conversationSubtitle">生成、编辑并本地保存图片历史</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="apiStatus" class="status-pill">未配置 API Key</span>
+          <button id="topSettingsBtn" class="topbar-btn" type="button">设置</button>
+        </div>
+      </header>
+
+      <section id="chatScroll" class="chat-scroll" aria-live="polite">
+        <div id="emptyState" class="empty-state">
+          <div class="empty-orb"><img src="./assets/app-icon.png" alt="" /></div>
+          <h2>开始一个图像任务</h2>
+          <p>输入提示词，可在下方横向参数菜单中切换生成/编辑、尺寸、质量、输出格式等参数。</p>
+          <div class="empty-suggestions">
+            <button class="suggestion" type="button" data-prompt="生成一张赛博朋克风格的东京夜景海报，霓虹灯、雨后街道、中文标题排版清晰。">赛博朋克海报</button>
+            <button class="suggestion" type="button" data-prompt="把参考图改成高级产品摄影：柔和棚拍灯光、干净背景、商业广告质感。">产品图编辑</button>
+            <button class="suggestion" type="button" data-prompt="绘制一张 16:9 信息图，解释 GPT Image 2 的图片生成工作流，中文标签清楚。">中文信息图</button>
+          </div>
+        </div>
+        <div id="messageList" class="message-list"></div>
+      </section>
+
+      <footer class="composer-shell">
+        <div id="validationPanel" class="validation-panel hidden" role="status"></div>
+        <div id="attachmentStrip" class="attachment-strip hidden"></div>
+
+        <div class="composer-card">
+          <textarea id="promptInput" rows="2" maxlength="32000" placeholder="描述你想生成或编辑的图片……"></textarea>
+          <div class="composer-actions">
+            <button id="uploadImagesBtn" class="round-action" type="button" title="添加编辑参考图">图片</button>
+            <input id="sourceImagesInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden />
+            <button id="uploadMaskBtn" class="round-action" type="button" title="添加 mask（可选，仅编辑）">Mask</button>
+            <input id="maskInput" type="file" accept="image/png" hidden />
+            <button id="sendBtn" class="send-btn" type="button">发送</button>
+          </div>
+        </div>
+
+        <nav class="param-rail" aria-label="图像参数横向菜单">
+          <section class="param-card compact">
+            <label for="endpointSelect">接口</label>
+            <select id="endpointSelect">
+              <option value="generations">生成 /v1/images/generations</option>
+              <option value="edits">编辑 /v1/images/edits</option>
+            </select>
+          </section>
+
+          <section class="param-card compact model-card">
+            <label for="modelInput">模型</label>
+            <input id="modelInput" type="text" value="gpt-image-2" spellcheck="false" />
+          </section>
+
+          <section class="param-card wide">
+            <div class="param-card-head">
+              <label>分辨率</label>
+              <span id="resolvedSizeLabel" class="mini-pill">auto</span>
+            </div>
+            <div class="size-builder">
+              <select id="ratioSelect" aria-label="比例">
+                <option value="auto">Auto</option>
+                <option value="1:1">1:1</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="3:2">3:2</option>
+                <option value="2:3">2:3</option>
+                <option value="4:3">4:3</option>
+                <option value="3:4">3:4</option>
+                <option value="21:9">21:9</option>
+                <option value="custom">自定义</option>
+              </select>
+              <select id="scaleSelect" aria-label="尺寸等级">
+                <option value="1024">1K</option>
+                <option value="2048">2K</option>
+                <option value="3072">3K</option>
+                <option value="3840">4K</option>
+              </select>
+            </div>
+            <div id="customSizeRow" class="custom-size-row hidden">
+              <input id="customWidthInput" type="number" min="16" max="3840" step="16" value="1024" aria-label="自定义宽度" />
+              <span>×</span>
+              <input id="customHeightInput" type="number" min="16" max="3840" step="16" value="1024" aria-label="自定义高度" />
+            </div>
+          </section>
+
+          <section class="param-card compact">
+            <label for="qualitySelect">质量</label>
+            <select id="qualitySelect">
+              <option value="auto">auto</option>
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+            </select>
+          </section>
+
+          <section class="param-card compact">
+            <label for="outputFormatSelect">格式</label>
+            <select id="outputFormatSelect">
+              <option value="png">png</option>
+              <option value="jpeg">jpeg</option>
+              <option value="webp">webp</option>
+            </select>
+          </section>
+
+          <section class="param-card compact">
+            <label for="compressionInput">压缩</label>
+            <input id="compressionInput" type="range" min="0" max="100" step="1" value="100" />
+            <span id="compressionLabel" class="mini-pill">100%</span>
+          </section>
+
+          <section class="param-card compact">
+            <label for="backgroundSelect">背景</label>
+            <select id="backgroundSelect">
+              <option value="auto">auto</option>
+              <option value="opaque">opaque</option>
+              <option value="transparent">transparent</option>
+            </select>
+          </section>
+
+          <section class="param-card compact">
+            <label for="countInput">数量 n</label>
+            <input id="countInput" type="number" min="1" max="10" step="1" value="1" />
+          </section>
+
+          <section class="param-card compact generation-only">
+            <label for="moderationSelect">审核</label>
+            <select id="moderationSelect">
+              <option value="auto">auto</option>
+              <option value="low">low</option>
+            </select>
+          </section>
+
+          <section class="param-card compact">
+            <label for="streamToggle">流式</label>
+            <label class="switch-row"><input id="streamToggle" type="checkbox" /> <span>stream</span></label>
+            <input id="partialImagesInput" type="number" min="0" max="3" step="1" value="0" aria-label="partial_images" />
+          </section>
+
+          <section class="param-card compact">
+            <label for="userInput">user</label>
+            <input id="userInput" type="text" placeholder="可选 end-user id" spellcheck="false" />
+          </section>
+        </nav>
+      </footer>
+    </main>
+  </div>
+
+  <dialog id="settingsDialog" class="modal-dialog">
+    <form method="dialog" class="modal-card" id="settingsForm">
+      <div class="modal-header">
+        <div>
+          <h2>设置</h2>
+          <p>API 站点留空时默认使用 OpenAI 官方站点。</p>
+        </div>
+        <button class="dialog-close" type="button" data-dialog-close="settingsDialog" aria-label="关闭">×</button>
+      </div>
+      <label class="form-field">
+        <span>API 站点 / 中转站</span>
+        <input id="baseUrlInput" type="url" placeholder="https://api.openai.com" spellcheck="false" />
+        <small>可填写兼容 OpenAI Images API 的中转站；不要重复写 /v1。</small>
+      </label>
+      <label class="form-field">
+        <span>API Key</span>
+        <input id="apiKeyInput" type="password" autocomplete="off" placeholder="sk-..." spellcheck="false" />
+      </label>
+      <label class="checkbox-row">
+        <input id="saveKeyToggle" type="checkbox" />
+        <span>把 API Key 保存到本地浏览器</span>
+      </label>
+      <div class="security-note">
+        静态网页无法隐藏 API Key。只建议作为个人工具使用；公开仓库不要写死 Key。界面主题会自动跟随系统深浅色模式。
+      </div>
+      <div class="settings-tools">
+        <h3>本地数据与预设</h3>
+        <p>可导入/导出预设，也可以删除本地保存的数据。</p>
+        <div class="utility-grid">
+          <button id="importPresetsBtn" class="secondary-btn" type="button">导入预设 / ZIP</button>
+          <button id="exportAllPresetsBtn" class="secondary-btn" type="button">导出全部预设（ZIP）</button>
+          <button id="deleteAllLocalDataBtn" class="secondary-btn danger" type="button">删除所有本地数据</button>
+        </div>
+        <input id="presetImportInput" type="file" accept=".json,.zip,application/json,application/zip" multiple hidden />
+      </div>
+      <div class="modal-actions">
+        <button id="testConfigBtn" class="secondary-btn" type="button">仅校验格式</button>
+        <button class="secondary-btn" type="button" data-dialog-close="settingsDialog">取消</button>
+        <button id="saveSettingsBtn" class="primary-btn" value="default" type="submit">保存设置</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="presetDialog" class="modal-dialog">
+    <form method="dialog" class="modal-card preset-card" id="presetForm">
+      <div class="modal-header">
+        <div>
+          <h2 id="presetDialogTitle">添加预设</h2>
+          <p>预设会保存参数与可选提示词模板。</p>
+        </div>
+        <button class="dialog-close" type="button" data-dialog-close="presetDialog" aria-label="关闭">×</button>
+      </div>
+      <input id="presetIdInput" type="hidden" />
+      <div class="form-grid two-cols">
+        <label class="form-field">
+          <span>预设名称</span>
+          <input id="presetNameInput" type="text" maxlength="60" placeholder="例如：4K 横版海报" required />
+        </label>
+        <label class="form-field">
+          <span>接口</span>
+          <select id="presetEndpointSelect">
+            <option value="generations">生成</option>
+            <option value="edits">编辑</option>
+          </select>
+        </label>
+      </div>
+      <label class="form-field">
+        <span>说明</span>
+        <input id="presetDescriptionInput" type="text" maxlength="160" placeholder="可选" />
+      </label>
+      <label class="form-field">
+        <span>提示词模板</span>
+        <textarea id="presetPromptInput" rows="3" maxlength="32000" placeholder="可留空；应用预设时会填入输入框。"></textarea>
+      </label>
+      <div class="form-grid three-cols">
+        <label class="form-field"><span>模型</span><input id="presetModelInput" type="text" value="gpt-image-2" /></label>
+        <label class="form-field"><span>尺寸</span><input id="presetSizeInput" type="text" value="auto" placeholder="auto 或 3840x2160" /></label>
+        <label class="form-field"><span>数量 n</span><input id="presetCountInput" type="number" min="1" max="10" value="1" /></label>
+        <label class="form-field"><span>质量</span><select id="presetQualitySelect"><option>auto</option><option>low</option><option>medium</option><option>high</option></select></label>
+        <label class="form-field"><span>格式</span><select id="presetFormatSelect"><option>png</option><option>jpeg</option><option>webp</option></select></label>
+        <label class="form-field"><span>压缩</span><input id="presetCompressionInput" type="number" min="0" max="100" value="100" /></label>
+        <label class="form-field"><span>背景</span><select id="presetBackgroundSelect"><option>auto</option><option>opaque</option><option>transparent</option></select></label>
+        <label class="form-field"><span>审核</span><select id="presetModerationSelect"><option>auto</option><option>low</option></select></label>
+        <label class="form-field"><span>partial_images</span><input id="presetPartialInput" type="number" min="0" max="3" value="0" /></label>
+      </div>
+      <label class="checkbox-row">
+        <input id="presetStreamToggle" type="checkbox" />
+        <span>启用 stream</span>
+      </label>
+      <label class="form-field">
+        <span>user</span>
+        <input id="presetUserInput" type="text" placeholder="可选" />
+      </label>
+      <div id="presetValidation" class="validation-panel hidden"></div>
+      <div class="modal-actions">
+        <button class="secondary-btn" type="button" data-dialog-close="presetDialog">取消</button>
+        <button id="savePresetBtn" class="primary-btn" value="default" type="submit">保存预设</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toastHost" class="toast-host" aria-live="assertive"></div>
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
